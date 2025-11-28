@@ -111,10 +111,14 @@ export async function getUserRatings(userId){
   return apiFetch(`/api/valoraciones/${userId}`)
 }
 
-export async function rateUser(userId, rating){
+export async function rateUser(userId, rating, comment = '', transactionId = null) {
   return apiFetch(`/api/valoraciones/${userId}`, { 
     method: 'POST', 
-    body: JSON.stringify({ puntaje: rating }) 
+    body: JSON.stringify({ 
+      puntaje: rating,
+      comentario: comment,
+      transaction_id: transactionId
+    }) 
   })
 }
 
@@ -262,6 +266,11 @@ export async function getMyTransactions(type = 'all'){
 
 export async function getTransactionDetails(transactionId){
   return apiFetch(`/api/transactions/${transactionId}`)
+}
+
+// Contact form
+export async function sendContact(payload){
+  return apiFetch('/api/contact', { method: 'POST', body: JSON.stringify(payload) })
 }
 
 // Lista de deseos / Wishlist

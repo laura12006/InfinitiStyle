@@ -289,9 +289,26 @@ export default function Profile() {
                 </div>
                 <div className="flex justify-between text-sm text-wine-dark mt-2">
                   <span className="font-medium">Nacimiento</span>
-                  <span>{user.fecha_nacimiento ? new Date(user.fecha_nacimiento).toLocaleDateString() : '-'}</span>
+                  <span>
+                    {user.fecha_nacimiento
+                      ? (() => {
+                          // Ejemplo de entrada: "Tue, 12 Sep 2006 00:00:00 GMT"
+                          const fecha = new Date(Date.parse(user.fecha_nacimiento));
+
+                          // Verifica si la fecha se parseó correctamente
+                          if (isNaN(fecha)) return '-';
+
+                          // Formatea manualmente
+                          const dia = String(fecha.getUTCDate()).padStart(2, '0');
+                          const mes = String(fecha.getUTCMonth() + 1).padStart(2, '0');
+                          const año = fecha.getUTCFullYear();
+
+                          return `${dia}/${mes}/${año}`;
+                        })()
+                      : '-'}
+                  </span>
                 </div>
-              </div>
+              </div> 
               <div className="mt-6 w-full">
                 <Link to="/publications/create" className="block text-center bg-wine-medium text-white py-2 rounded-md hover:bg-wine-dark">Crear publicación</Link>
               </div>

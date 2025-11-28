@@ -162,14 +162,7 @@ export default function UserProfile() {
           <>
             {/* Header del Perfil */}
             <div className="bg-gradient-to-r from-wine-darkest via-wine-dark to-wine-medium rounded-2xl shadow-2xl overflow-hidden mb-8">
-              <div className="relative">
-                {/* Patrón de fondo */}
-                <div className="absolute inset-0 bg-black bg-opacity-20">
-                  <div className="absolute inset-0" style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Cpath d='M20 0h20v20H20zM0 20h20v20H0z'/%3E%3C/g%3E%3C/svg%3E")`,
-                  }}></div>
-                </div>
-                
+              <div className="relative">                
                 <div className="relative p-8">
                   <div className="flex flex-col md:flex-row items-start md:items-center space-y-6 md:space-y-0 md:space-x-8">
                     {/* Avatar */}
@@ -183,7 +176,7 @@ export default function UserProfile() {
                     </div>
 
                     {/* Información Principal */}
-                    <div className="flex-1 text-white">
+                    <div className="flex-1 text-white">|
                       <div className="flex flex-col md:flex-row md:items-start md:justify-between">
                         <div>
                           <h1 className="text-4xl font-bold mb-2">

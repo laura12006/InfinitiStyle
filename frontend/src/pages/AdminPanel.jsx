@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { adminGetUsers, adminCreateUser, adminUpdateUser, adminDeleteUser, 
          adminGetPublications, adminDeletePublication, 
-         adminGetPayments, adminUpdatePayment,
          adminGetMessages, adminDeleteMessage,
          adminGetStats, adminGetRatings } from '../api';
 
@@ -13,7 +12,6 @@ export default function AdminPanel() {
   // Estados para cada sección
   const [users, setUsers] = useState({ data: [], total: 0, page: 1 });
   const [publications, setPublications] = useState({ data: [], total: 0, page: 1 });
-  const [payments, setPayments] = useState({ data: [], total: 0, page: 1 });
   const [messages, setMessages] = useState({ data: [], total: 0, page: 1 });
   const [ratings, setRatings] = useState({ data: [], total: 0, page: 1 });
 
@@ -36,8 +34,7 @@ export default function AdminPanel() {
   // Filtros
   const [filters, setFilters] = useState({
     users: { search: '', role: '', verified: '' },
-    publications: { search: '', tipo: '', estado: '' },
-    payments: { estado: '' }
+    publications: { search: '', tipo: '', estado: '' }
   });
 
   useEffect(() => {
@@ -47,14 +44,12 @@ export default function AdminPanel() {
       loadUsers();
     } else if (activeTab === 'publications') {
       loadPublications();
-    } else if (activeTab === 'payments') {
-      loadPayments();
     } else if (activeTab === 'messages') {
       loadMessages();
     } else if (activeTab === 'ratings') {
       loadRatings();
     }
-  }, [activeTab, users.page, publications.page, payments.page, messages.page, ratings.page, filters]);
+  }, [activeTab, users.page, publications.page, messages.page, ratings.page, filters]);
 
   const loadStats = async () => {
     setLoading(true);
@@ -98,19 +93,6 @@ export default function AdminPanel() {
     }
   };
 
-  const loadPayments = async () => {
-    setLoading(true);
-    try {
-      const response = await adminGetPayments(payments.page, 10, filters.payments);
-      if (response.ok) {
-        setPayments(prev => ({ ...prev, data: response.data.payments, total: response.data.total }));
-      }
-    } catch (error) {
-      console.error('Error loading payments:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadMessages = async () => {
     setLoading(true);
@@ -185,20 +167,6 @@ export default function AdminPanel() {
         console.error('Error deleting message:', error);
         alert('Error al eliminar mensaje');
       }
-    }
-  };
-
-  const handleUpdatePaymentStatus = async (paymentId, newStatus) => {
-    try {
-      const response = await adminUpdatePayment(paymentId, { estado_pago: newStatus });
-      if (response.ok) {
-        loadPayments();
-      } else {
-        alert(response.data?.error || 'Error al actualizar pago');
-      }
-    } catch (error) {
-      console.error('Error updating payment:', error);
-      alert('Error al actualizar pago');
     }
   };
 
@@ -300,19 +268,6 @@ export default function AdminPanel() {
           </div>
         </div>
         
-        <div className="bg-gradient-to-br from-gray-600 to-gray-700 p-6 rounded-lg text-white shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold">Pagos</h3>
-              <p className="text-3xl font-bold">{stats.total_payments || 0}</p>
-              <p className="text-sm opacity-80">Completados: {stats.completed_payments || 0}</p>
-            </div>
-            <svg className="w-12 h-12 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-            </svg>
-          </div>
-        </div>
-        
         <div className="bg-gradient-to-br from-wine-dark to-wine-darkest p-6 rounded-lg text-white shadow-lg">
           <div className="flex items-center justify-between">
             <div>
@@ -379,15 +334,6 @@ export default function AdminPanel() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>
               <span>Ver Publicaciones</span>
-            </button>
-            <button 
-              onClick={() => setActiveTab('payments')}
-              className="w-full bg-wine-medium text-white px-4 py-3 rounded-lg hover:bg-wine-dark transition-colors flex items-center justify-center space-x-2 shadow-sm"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-              </svg>
-              <span>Gestionar Pagos</span>
             </button>
           </div>
         </div>
@@ -664,98 +610,7 @@ export default function AdminPanel() {
     </div>
   );
 
-  const renderPayments = () => (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-wine-darkest">Gestión de Pagos</h2>
 
-      {/* Filtros */}
-      <div className="bg-white p-4 rounded-lg shadow-lg">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <select
-            value={filters.payments.estado}
-            onChange={(e) => setFilters(prev => ({ 
-              ...prev, 
-              payments: { ...prev.payments, estado: e.target.value } 
-            }))}
-            className="px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-wine-medium"
-          >
-            <option value="">Todos los estados</option>
-            <option value="PENDIENTE">Pendiente</option>
-            <option value="PROCESO">En Proceso</option>
-            <option value="COMPLETADO">Completado</option>
-          </select>
-          <button 
-            onClick={loadPayments}
-            className="inline-flex items-center bg-wine-medium text-white px-4 py-2 rounded-lg hover:bg-wine-dark transition-colors shadow-sm"
-          >
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Refrescar
-          </button>
-        </div>
-      </div>
-
-      {/* Tabla de pagos */}
-      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {payments.data.map((payment) => (
-                <tr key={payment.id_pago}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{payment.id_pago}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {payment['1_nombre']} {payment['1_apellido']}
-                    </div>
-                    <div className="text-sm text-gray-500">{payment.correo_electronico}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    ${payment.monto.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{payment.metodo_pago}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <select
-                      value={payment.estado_pago}
-                      onChange={(e) => handleUpdatePaymentStatus(payment.id_pago, e.target.value)}
-                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border-none outline-none cursor-pointer ${
-                        payment.estado_pago === 'COMPLETADO' 
-                          ? 'bg-green-100 text-green-800'
-                          : payment.estado_pago === 'PROCESO'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}
-                    >
-                      <option value="PENDIENTE">Pendiente</option>
-                      <option value="PROCESO">En Proceso</option>
-                      <option value="COMPLETADO">Completado</option>
-                    </select>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(payment.fecha_pago).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <span className="text-gray-500">Sistema</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
 
   const renderMessages = () => (
     <div className="space-y-6">
@@ -1078,15 +933,7 @@ export default function AdminPanel() {
                     </svg>
                   )
                 },
-                { 
-                  key: 'payments', 
-                  label: 'Pagos', 
-                  icon: (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                    </svg>
-                  )
-                },
+
                 { 
                   key: 'messages', 
                   label: 'Mensajes', 
@@ -1135,7 +982,6 @@ export default function AdminPanel() {
               {activeTab === 'dashboard' && renderDashboard()}
               {activeTab === 'users' && renderUsers()}
               {activeTab === 'publications' && renderPublications()}
-              {activeTab === 'payments' && renderPayments()}
               {activeTab === 'messages' && renderMessages()}
               {activeTab === 'ratings' && renderRatings()}
             </>
@@ -1149,12 +995,10 @@ export default function AdminPanel() {
               <span className="text-sm text-gray-700">
                 Mostrando {activeTab === 'users' ? users.data.length : 
                           activeTab === 'publications' ? publications.data.length :
-                          activeTab === 'payments' ? payments.data.length :
                           activeTab === 'messages' ? messages.data.length :
                           ratings.data.length} de {
                           activeTab === 'users' ? users.total : 
                           activeTab === 'publications' ? publications.total :
-                          activeTab === 'payments' ? payments.total :
                           activeTab === 'messages' ? messages.total :
                           ratings.total} resultados
               </span>
@@ -1163,19 +1007,16 @@ export default function AdminPanel() {
                   onClick={() => {
                     const current = activeTab === 'users' ? users :
                                    activeTab === 'publications' ? publications :
-                                   activeTab === 'payments' ? payments :
                                    activeTab === 'messages' ? messages : ratings;
                     if (current.page > 1) {
                       if (activeTab === 'users') setUsers(prev => ({ ...prev, page: prev.page - 1 }));
                       else if (activeTab === 'publications') setPublications(prev => ({ ...prev, page: prev.page - 1 }));
-                      else if (activeTab === 'payments') setPayments(prev => ({ ...prev, page: prev.page - 1 }));
                       else if (activeTab === 'messages') setMessages(prev => ({ ...prev, page: prev.page - 1 }));
                       else setRatings(prev => ({ ...prev, page: prev.page - 1 }));
                     }
                   }}
                   disabled={activeTab === 'users' ? users.page <= 1 : 
                            activeTab === 'publications' ? publications.page <= 1 :
-                           activeTab === 'payments' ? payments.page <= 1 :
                            activeTab === 'messages' ? messages.page <= 1 :
                            ratings.page <= 1}
                   className="px-3 py-1 border border-gray-300 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1185,7 +1026,6 @@ export default function AdminPanel() {
                 <span className="px-3 py-1 text-sm">
                   Página {activeTab === 'users' ? users.page : 
                           activeTab === 'publications' ? publications.page :
-                          activeTab === 'payments' ? payments.page :
                           activeTab === 'messages' ? messages.page :
                           ratings.page}
                 </span>
@@ -1193,13 +1033,11 @@ export default function AdminPanel() {
                   onClick={() => {
                     const current = activeTab === 'users' ? users :
                                    activeTab === 'publications' ? publications :
-                                   activeTab === 'payments' ? payments :
                                    activeTab === 'messages' ? messages : ratings;
                     const maxPages = Math.ceil(current.total / 10);
                     if (current.page < maxPages) {
                       if (activeTab === 'users') setUsers(prev => ({ ...prev, page: prev.page + 1 }));
                       else if (activeTab === 'publications') setPublications(prev => ({ ...prev, page: prev.page + 1 }));
-                      else if (activeTab === 'payments') setPayments(prev => ({ ...prev, page: prev.page + 1 }));
                       else if (activeTab === 'messages') setMessages(prev => ({ ...prev, page: prev.page + 1 }));
                       else setRatings(prev => ({ ...prev, page: prev.page + 1 }));
                     }
@@ -1207,7 +1045,6 @@ export default function AdminPanel() {
                   disabled={(() => {
                     const current = activeTab === 'users' ? users :
                                    activeTab === 'publications' ? publications :
-                                   activeTab === 'payments' ? payments :
                                    activeTab === 'messages' ? messages : ratings;
                     return current.page >= Math.ceil(current.total / 10);
                   })()}

@@ -178,6 +178,72 @@ def send_email(to_address, subject, body):
         return False
 
 
+@app.route('/api/contact', methods=['POST'])
+def contact():
+    """Endpoint simple para enviar contacto desde el frontend hacia el correo del proyecto."""
+    data = request.get_json() or {}
+    name = data.get('name', '').strip()
+    email = data.get('email', '').strip()
+    subject = data.get('subject', 'Contacto desde sitio').strip()
+    message = data.get('message', '').strip()
+
+    if not email or not message:
+        return jsonify({'error': 'Correo y mensaje son requeridos'}), 400
+
+    body = f"Contacto desde la web:\n\nNombre: {name}\nCorreo: {email}\nAsunto: {subject}\n\nMensaje:\n{message}\n"
+
+    # Destino fijo
+    target = 'styleInfinite90@gmail.com'
+
+    sent = send_email(target, subject, body)
+    if not sent:
+        # Si no se pudo enviar por SMTP, devolver éxito simulando (pero loggear)
+        print('[WARN] No se pudo enviar correo de contacto por SMTP. Mensaje:')
+        print(body)
+        # Devolver 200 para no romper la UX en desarrollo, pero indicar advertencia
+        return jsonify({'ok': True, 'warning': 'SMTP no configurado o fallo enviando. El mensaje fue registrado en el servidor.'}), 200
+
+    return jsonify({'ok': True, 'message': 'Mensaje enviado correctamente'}), 200
+
+
+def send_email_with_attachments(to_address, subject, body, attachments=None):
+    """Envía un correo y adjunta archivos. `attachments` es una lista de rutas absolutas a archivos."""
+    # Si no hay configuración SMTP, loggear y devolver False
+    if not SMTP_HOST or not SMTP_USER or not SMTP_PASSWORD:
+        print(f"SMTP no configurado. Email para {to_address}:\n{subject}\n{body}\nAdjuntos: {attachments}")
+        return False
+    try:
+        msg = EmailMessage()
+        msg['Subject'] = subject
+        msg['From'] = SMTP_FROM
+        msg['To'] = to_address
+        msg.set_content(body)
+
+        if attachments:
+            import mimetypes
+            for path in attachments:
+                try:
+                    ctype, encoding = mimetypes.guess_type(path)
+                    if ctype is None:
+                        ctype = 'application/octet-stream'
+                    maintype, subtype = ctype.split('/', 1)
+                    with open(path, 'rb') as f:
+                        file_data = f.read()
+                        filename = os.path.basename(path)
+                        msg.add_attachment(file_data, maintype=maintype, subtype=subtype, filename=filename)
+                except Exception as e:
+                    print(f"Error adjuntando archivo {path}: {e}")
+
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        print('Error enviando email con adjuntos:', e)
+        return False
+
+
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.json
@@ -415,7 +481,7 @@ def get_user_profile(user_id):
     try:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT id_usuario, 1_nombre, 2_nombre, 1_apellido, 2_apellido, 
+                SELECT id_usuario, `1_nombre`, `2_nombre`, `1_apellido`, `2_apellido`, 
                        correo_electronico, talla, fecha_nacimiento, fecha_registro, foto
                 FROM usuario 
                 WHERE id_usuario = %s
@@ -810,7 +876,7 @@ def valoraciones(user_id):
         try:
             with conn.cursor() as cur:
                 cur.execute('''
-                    SELECT v.*, u.1_nombre as valorador_nombre, u.1_apellido as valorador_apellido
+                    SELECT v.*, u.`1_nombre` as valorador_nombre, u.`1_apellido` as valorador_apellido
                     FROM valoracion v
                     JOIN usuario u ON v.usuario_valorador_id = u.id_usuario
                     WHERE v.usuario_valorado_id = %s
@@ -840,14 +906,28 @@ def valoraciones(user_id):
         puntaje = data['puntaje']
         if not isinstance(puntaje, int) or puntaje < 1 or puntaje > 5:
             return jsonify({'error': 'Puntaje debe ser entre 1 y 5'}), 400
+        
+        transaction_id = data.get('transaction_id')  # Opcional, para marcar transacción como calificada
             
         conn = get_db_connection()
         try:
             with conn.cursor() as cur:
                 cur.execute('''
-                    INSERT INTO valoracion (usuario_valorado_id, puntaje)
-                    VALUES (%s, %s)
-                ''', (user_id, puntaje))
+                    INSERT INTO valoracion (usuario_valorador_id, usuario_valorado_id, puntaje)
+                    VALUES (%s, %s, %s)
+                ''', (evaluador_id, user_id, puntaje))
+                
+                # Si se proporciona transaction_id, marcar como calificada
+                if transaction_id:
+                    try:
+                        cur.execute('''
+                            UPDATE transaccion 
+                            SET calificado = TRUE 
+                            WHERE id_transaccion = %s
+                        ''', (transaction_id,))
+                    except Exception as e:
+                        print(f"[WARN] Error marcando transacción como calificada: {e}")
+                
                 conn.commit()
                 return jsonify({'message': 'Valoración registrada exitosamente'})
         finally:
@@ -1786,8 +1866,8 @@ def get_my_transactions():
             
             query = f'''
                 SELECT t.*, p.*, pr.nombre, pr.foto, pr.valor,
-                       uc.1_nombre as comprador_nombre, uc.1_apellido as comprador_apellido,
-                       uv.1_nombre as vendedor_nombre, uv.1_apellido as vendedor_apellido
+                       uc.id_usuario as id_comprador, uc.`1_nombre` as comprador_nombre, uc.`1_apellido` as comprador_apellido,
+                       uv.id_usuario as id_usuario, uv.`1_nombre` as vendedor_nombre, uv.`1_apellido` as vendedor_apellido
                 FROM transaccion t
                 JOIN publicacion p ON t.id_publicacion = p.id_publicacion
                 JOIN prenda pr ON p.id_publicacion = pr.id_publicacion
@@ -1938,20 +2018,47 @@ def upload_payment_proof(transaction_id):
             filename = secure_filename(file.filename)
             file_extension = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
             unique_filename = f"comprobante_{transaction_id}_{uuid.uuid4().hex}.{file_extension}"
-            
+
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
             file.save(file_path)
-            
-            # Actualizar transacción
+
+            # Guardar en la BD la ruta pública consistente con otras tablas (/uploads/..)
+            public_path = f"/uploads/{unique_filename}"
             cur.execute('''
                 UPDATE transaccion 
                 SET estado = 'PAGO_ENVIADO', fecha_pago_enviado = NOW(), comprobante_pago = %s
                 WHERE id_transaccion = %s
-            ''', (unique_filename, transaction_id))
+            ''', (public_path, transaction_id))
             
             conn.commit()
-            
-            return jsonify({'message': 'Comprobante subido exitosamente'})
+            # Enviar correo al vendedor con el comprobante adjunto
+            try:
+                # Obtener información del vendedor
+                cur.execute('''
+                    SELECT u.correo_electronico, u.`1_nombre`, u.`1_apellido`, p.id_publicacion
+                    FROM publicacion p
+                    JOIN usuario u ON p.id_usuario = u.id_usuario
+                    WHERE p.id_publicacion = %s
+                ''', (transaction['id_publicacion'],))
+                seller = cur.fetchone()
+                if seller and seller.get('correo_electronico'):
+                    seller_email = seller['correo_electronico']
+                    seller_name = f"{seller.get('1_nombre','').strip()} {seller.get('1_apellido','').strip()}".strip()
+                    subject = f"Comprobante de pago recibido - Transacción {transaction_id}"
+                    body = (
+                        f"Hola {seller_name or 'vendedor'},\n\n"
+                        f"El comprador ha subido el comprobante de pago para la transacción #{transaction_id}.\n"
+                        "El archivo está adjuntado a este correo.\n\n"
+                        "Saludos,\nEquipo InfinitiStyle"
+                    )
+                    sent = send_email_with_attachments(seller_email, subject, body, attachments=[file_path])
+                    if not sent:
+                        print(f"[WARN] No se pudo enviar correo al vendedor {seller_email}.")
+                else:
+                    print(f"[WARN] No se encontró correo del vendedor para la publicación {transaction.get('id_publicacion')}")
+            except Exception as e:
+                print(f"[ERROR] Error enviando correo al vendedor: {e}")
+            return jsonify({'message': 'Comprobante subido exitosamente', 'comprobante': public_path})
             
     except Exception as e:
         return jsonify({'error': 'Error al subir comprobante', 'detail': str(e)}), 500
@@ -2061,8 +2168,10 @@ def confirm_delivery(transaction_id):
         with conn.cursor() as cur:
             # Verificar que la transacción existe y el usuario es el comprador
             cur.execute('''
-                SELECT * FROM transaccion 
-                WHERE id_transaccion = %s AND id_comprador = %s AND estado = 'ENVIADO'
+                SELECT t.*, p.id_usuario as id_usuario
+                FROM transaccion t
+                JOIN publicacion p ON t.id_publicacion = p.id_publicacion
+                WHERE t.id_transaccion = %s AND t.id_comprador = %s AND t.estado = 'ENVIADO'
             ''', (transaction_id, user_id))
             
             transaction = cur.fetchone()
@@ -2084,7 +2193,7 @@ def confirm_delivery(transaction_id):
             
             conn.commit()
             
-            return jsonify({'message': 'Entrega confirmada exitosamente'})
+            return jsonify({'message': 'Entrega confirmada exitosamente', 'transaction': transaction})
             
     except Exception as e:
         return jsonify({'error': 'Error al confirmar entrega', 'detail': str(e)}), 500
@@ -2138,8 +2247,9 @@ def ensure_transaction_table():
             cur.execute("SHOW TABLES LIKE 'transaccion'")
             exists = cur.fetchone()
             
+            desired_estado_enum = "ENUM('PENDIENTE_PAGO','PAGO_ENVIADO','PAGO_CONFIRMADO','ENVIADO','ENTREGADO','CANCELADO')"
             if exists:
-                # Verificar la estructura de la columna estado
+                # Tabla existe: verificar y actualizar columnas si es necesario (no borrar datos)
                 cur.execute("DESCRIBE transaccion")
                 columns = cur.fetchall()
                 estado_column = None
@@ -2147,44 +2257,55 @@ def ensure_transaction_table():
                     if col['Field'] == 'estado':
                         estado_column = col
                         break
-                
+
                 print(f"[DEBUG] Tabla transaccion existe. Columna estado: {estado_column}")
-                
-                # FORZAR recreación de la tabla para asegurar definición correcta
-                print("[INFO] Forzando recreación de tabla transaccion para corregir ENUM...")
-                cur.execute("DROP TABLE IF EXISTS transaccion")
-                print("[INFO] Tabla transaccion eliminada")
-                    
-            print("[INFO] Creando tabla transaccion con definición correcta...")
-            cur.execute('''
-                CREATE TABLE transaccion (
-                    id_transaccion INT PRIMARY KEY AUTO_INCREMENT,
-                    id_publicacion INT NOT NULL,
-                    id_comprador INT NOT NULL,
-                    estado ENUM('PENDIENTE_PAGO', 'PAGO_ENVIADO', 'PAGO_CONFIRMADO', 'ENVIADO', 'ENTREGADO', 'CANCELADO') NOT NULL DEFAULT 'PENDIENTE_PAGO',
-                    fecha_inicio DATETIME NOT NULL,
-                    fecha_pago_enviado DATETIME NULL,
-                    fecha_pago_confirmado DATETIME NULL,
-                    fecha_envio DATETIME NULL,
-                    fecha_entrega DATETIME NULL,
-                    comprobante_pago TEXT NULL,
-                    info_seguimiento TEXT NULL,
-                    mensaje_inicial TEXT NULL,
-                    FOREIGN KEY (id_publicacion) REFERENCES publicacion(id_publicacion) ON DELETE CASCADE,
-                    FOREIGN KEY (id_comprador) REFERENCES usuario(id_usuario) ON DELETE CASCADE,
-                    INDEX idx_comprador (id_comprador),
-                    INDEX idx_publicacion (id_publicacion)
-                )
-            ''')
-            print("[INFO] Tabla transaccion creada exitosamente con ENUM correcto")
-            
-            # Verificar que se creó correctamente
-            cur.execute("DESCRIBE transaccion")
-            new_columns = cur.fetchall()
-            for col in new_columns:
-                if col['Field'] == 'estado':
-                    print(f"[INFO] Nueva columna estado: {col}")
-                    break
+
+                # Si la columna 'estado' existe pero su definición no incluye todas las opciones, modificarla
+                if estado_column:
+                    col_type = estado_column.get('Type', '')
+                    # Normalizar y comprobar si faltan valores en el enum
+                    if 'PAGO_CONFIRMADO' not in col_type or 'PAGO_ENVIADO' not in col_type:
+                        try:
+                            print("[INFO] Actualizando definición de la columna 'estado' para incluir valores faltantes...")
+                            cur.execute(f"ALTER TABLE transaccion MODIFY COLUMN estado {desired_estado_enum} NOT NULL DEFAULT 'PENDIENTE_PAGO'")
+                            print("[INFO] Columna 'estado' actualizada")
+                        except Exception as e:
+                            print(f"[WARN] No se pudo actualizar la columna 'estado': {e}")
+                else:
+                    print("[WARN] La columna 'estado' no existe en 'transaccion' (se intentará crear tabla si es necesario)")
+
+            else:
+                # La tabla no existe: crearla
+                print("[INFO] Creando tabla transaccion con definición correcta...")
+                cur.execute('''
+                    CREATE TABLE transaccion (
+                        id_transaccion INT PRIMARY KEY AUTO_INCREMENT,
+                        id_publicacion INT NOT NULL,
+                        id_comprador INT NOT NULL,
+                        estado ENUM('PENDIENTE_PAGO','PAGO_ENVIADO','PAGO_CONFIRMADO','ENVIADO','ENTREGADO','CANCELADO') NOT NULL DEFAULT 'PENDIENTE_PAGO',
+                        fecha_inicio DATETIME NOT NULL,
+                        fecha_pago_enviado DATETIME NULL,
+                        fecha_pago_confirmado DATETIME NULL,
+                        fecha_envio DATETIME NULL,
+                        fecha_entrega DATETIME NULL,
+                        comprobante_pago TEXT NULL,
+                        info_seguimiento TEXT NULL,
+                        mensaje_inicial TEXT NULL,
+                        calificado BOOLEAN DEFAULT FALSE,
+                        FOREIGN KEY (id_publicacion) REFERENCES publicacion(id_publicacion) ON DELETE CASCADE,
+                        FOREIGN KEY (id_comprador) REFERENCES usuario(id_usuario) ON DELETE CASCADE,
+                        INDEX idx_comprador (id_comprador),
+                        INDEX idx_publicacion (id_publicacion)
+                    )
+                ''')
+                print("[INFO] Tabla transaccion creada exitosamente con ENUM correcto")
+                # verificar creación
+                cur.execute("DESCRIBE transaccion")
+                new_columns = cur.fetchall()
+                for col in new_columns:
+                    if col['Field'] == 'estado':
+                        print(f"[INFO] Nueva columna estado: {col}")
+                        break
             
             # Agregar columna leido a mensaje si no existe
             try:
@@ -2194,10 +2315,18 @@ def ensure_transaction_table():
                 if "Duplicate column name" not in str(column_error):
                     raise column_error
             
+            # Agregar columna calificado a transaccion si no existe
+            try:
+                cur.execute('ALTER TABLE transaccion ADD COLUMN calificado BOOLEAN DEFAULT FALSE')
+            except Exception as column_error:
+                # La columna ya existe, ignorar el error
+                if "Duplicate column name" not in str(column_error):
+                    raise column_error
+            
             conn.commit()
-            print("✅ Tabla de transacciones y columna leido aseguradas")
+            print("[OK] Tabla de transacciones y columnas aseguradas")
     except Exception as e:
-        print(f"❌ Error al crear tabla de transacciones: {e}")
+        print(f"[ERROR] Error al crear tabla de transacciones: {e}")
     finally:
         conn.close()
 

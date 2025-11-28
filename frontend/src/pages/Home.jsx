@@ -639,7 +639,7 @@ export default function Home() {
               to="/register"
               className="bg-white text-wine-darkest px-10 py-4 rounded-xl text-xl font-semibold hover:bg-gray-100 transition duration-300 shadow-lg transform hover:scale-105"
             >
-              Crear Cuenta Gratis
+              Crear Cuenta
             </Link>
           )}
         </div>

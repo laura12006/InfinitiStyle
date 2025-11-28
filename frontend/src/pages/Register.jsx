@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { register } from '../api'
+import TermsModal from '../components/TermsModal'
 
 export default function Register(){
   const [email, setEmail] = useState('')
@@ -16,6 +17,8 @@ export default function Register(){
   const [ageError, setAgeError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [showTermsModal, setShowTermsModal] = useState(false)
   const navigate = useNavigate()
 
   // Función para calcular la edad
@@ -61,6 +64,12 @@ export default function Register(){
         return
       }
     }
+
+    // Validar aceptación de términos
+    if (!acceptedTerms) {
+      setError('Debes aceptar los términos y condiciones para registrarte')
+      return
+    }
     
     setIsLoading(true)
     try {
@@ -73,7 +82,8 @@ export default function Register(){
         '2_apellido': secondLast,
         talla,
         fecha_nacimiento: fecha,
-        foto
+        foto,
+        accepted_terms: acceptedTerms
       }
       const res = await register(payload)
       if (res.ok && res.data && res.data.verification_required) {
@@ -285,6 +295,7 @@ export default function Register(){
                   <select
                     value={talla}
                     onChange={e => setTalla(e.target.value)}
+                    required
                     className="block w-full pl-10 pr-3 py-3 border border-wine-medium/30 rounded-xl 
                              focus:outline-none focus:ring-2 focus:ring-wine-medium focus:border-transparent
                              bg-white/70 backdrop-blur-sm text-wine-darkest
@@ -315,6 +326,7 @@ export default function Register(){
                     type="date"
                     value={fecha}
                     onChange={handleDateChange}
+                    required
                     className={`block w-full pl-10 pr-3 py-3 border rounded-xl 
                              focus:outline-none focus:ring-2 focus:ring-wine-medium focus:border-transparent
                              bg-white/70 backdrop-blur-sm text-wine-darkest
@@ -350,16 +362,33 @@ export default function Register(){
               </div>
             )}
 
+            {/* Términos y condiciones */}
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center space-x-3">
+                  <label className="inline-flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={acceptedTerms}
+                      onChange={(e) => setAcceptedTerms(e.target.checked)}
+                      className="h-4 w-4 rounded border-wine-medium/30 text-wine-medium focus:ring-wine-medium"
+                      aria-required="true"
+                    />
+                    <span className="text-sm text-wine-darkest">He leído y acepto los <button type="button" onClick={() => setShowTermsModal(true)} className="text-wine-medium underline ml-1">términos y condiciones</button></span>
+                  </label>
+                </div>
+              <div className="text-xs text-wine-medium">Es necesario aceptar para crear cuenta</div>
+            </div>
+
             {/* Botón de registro */}
             <div>
               <button
                 type="submit"
-                disabled={ageError || isLoading}
+                disabled={ageError || isLoading || !acceptedTerms}
                 className={`w-full flex justify-center items-center py-3 px-4 rounded-xl font-semibold text-white
                          transition-all duration-300 transform ${
                   (ageError || isLoading)
                     ? 'bg-gray-400 cursor-not-allowed opacity-60' 
-                    : 'bg-gradient-to-r from-wine-medium to-wine-dark hover:from-wine-dark hover:to-wine-darkest hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-wine-medium focus:ring-offset-2'
+                    : (!acceptedTerms ? 'bg-gray-400 cursor-not-allowed opacity-60' : 'bg-gradient-to-r from-wine-medium to-wine-dark hover:from-wine-dark hover:to-wine-darkest hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-wine-medium focus:ring-offset-2')
                 }`}
                 aria-busy={isLoading}
               >
@@ -381,6 +410,9 @@ export default function Register(){
                 )}
               </button>
             </div>
+
+            {/* Modal (componente) */}
+            <TermsModal open={showTermsModal} onClose={() => setShowTermsModal(false)} onAccept={() => setAcceptedTerms(true)} />
 
             {/* Separador */}
             <div className="relative">
@@ -405,6 +437,38 @@ export default function Register(){
               </Link>
             </div>
           </form>
+
+          {/* Modal de Términos y Condiciones */}
+          {showTermsModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/40" onClick={() => setShowTermsModal(false)}></div>
+              <div className="relative max-w-3xl w-full mx-4 bg-white rounded-2xl shadow-2xl p-6 z-10">
+                <div className="flex items-start justify-between">
+                  <h3 className="text-lg font-bold text-wine-darkest">Términos y Condiciones</h3>
+                  <button onClick={() => setShowTermsModal(false)} className="text-wine-medium hover:text-wine-dark">Cerrar</button>
+                </div>
+                <div className="mt-4 max-h-72 overflow-auto text-sm text-wine-dark/80 space-y-3">
+                  <p><strong>1. Aceptación</strong></p>
+                  <p>Al crear una cuenta aceptas estos términos y condiciones. Lee cuidadosamente la información antes de continuar.</p>
+                  <p><strong>2. Uso del servicio</strong></p>
+                  <p>StyleInfinite es una plataforma para la publicación y venta/intercambio de prendas. Eres responsable del contenido que publiques y de cumplir la legislación aplicable.</p>
+                  <p><strong>3. Privacidad</strong></p>
+                  <p>Tu información será tratada de acuerdo con nuestra política de privacidad. No compartiremos tus datos sin tu consentimiento salvo obligaciones legales.</p>
+                  <p><strong>4. Propiedad intelectual</strong></p>
+                  <p>Los usuarios conservan derechos sobre sus publicaciones, pero nos concedes una licencia para mostrar y distribuir el contenido dentro del servicio.</p>
+                  <p><strong>5. Limitación de responsabilidad</strong></p>
+                  <p>No nos hacemos responsables por disputas entre usuarios ni por la calidad de los bienes. Recomendamos comunicación clara y pruebas en transacciones.</p>
+                  <p><strong>6. Contacto</strong></p>
+                  <p>Para dudas o reclamos, utiliza el formulario de contacto en el sitio.</p>
+                  <p className="text-xs text-wine-medium">(Texto de ejemplo. Reemplaza por tus términos legales completos.)</p>
+                </div>
+                <div className="mt-4 flex justify-end space-x-3">
+                  <button onClick={() => { setAcceptedTerms(true); setShowTermsModal(false); }} className="px-4 py-2 bg-wine-medium text-white rounded-lg">Aceptar y Cerrar</button>
+                  <button onClick={() => setShowTermsModal(false)} className="px-4 py-2 border rounded-lg">Cerrar</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

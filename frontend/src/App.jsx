@@ -15,6 +15,7 @@ import PublicationDetail from './pages/PublicationDetail'
 import EditPublication from './pages/EditPublication'
 import UserProfile from './pages/UserProfile'
 import MyTransactions from './pages/MyTransactions'
+import Contact from './pages/Contact'
 import Navbar from './components/Navbar'
 import TestStyles from './components/TestStyles'
 import FloatingChat from './components/FloatingChat'
@@ -40,6 +41,7 @@ export default function App(){
           <Route path='/publications/:id/edit' element={<EditPublication/>} />
           <Route path='/user/:userId' element={<UserProfile/>} />
           <Route path='/transactions' element={<MyTransactions/>} />
+          <Route path='/contact' element={<Contact/>} />   
          <Route path='/test-styles' element={<TestStyles/>} />
         </Routes>
       </main>

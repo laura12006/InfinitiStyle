@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { getMyTransactions, uploadPaymentProof, confirmPayment, markItemAsShipped, confirmDelivery, rateUser } from '../api';
-import { getImageUrl } from '../api';
+import { 
+  getMyTransactions, 
+  uploadPaymentProof, 
+  confirmPayment, 
+  markItemAsShipped, 
+  confirmDelivery, 
+  rateUser,
+  getImageUrl
+} from '../api';
 
 export default function MyTransactions() {
   const [transactions, setTransactions] = useState([]);
@@ -13,6 +20,7 @@ export default function MyTransactions() {
   const [ratingTransaction, setRatingTransaction] = useState(null);
   const [rating, setRating] = useState(0);
   const [submittingRating, setSubmittingRating] = useState(false);
+  const [viewingProof, setViewingProof] = useState(null);
 
   useEffect(() => {
     loadTransactions();
@@ -37,7 +45,6 @@ export default function MyTransactions() {
       alert('Selecciona un archivo de comprobante');
       return;
     }
-
     setUploading(true);
     try {
       const response = await uploadPaymentProof(transactionId, proofFile);
@@ -96,7 +103,11 @@ export default function MyTransactions() {
       try {
         const response = await confirmDelivery(transactionId);
         if (response.ok) {
-          alert('Entrega confirmada exitosamente');
+          // Buscar la transacción para abrir el modal de calificación
+          const transaction = transactions.find(t => t.id_transaccion === transactionId);
+          if (transaction) {
+            setRatingTransaction(transaction);
+          }
           loadTransactions();
         } else {
           alert(response.data?.error || 'Error al confirmar entrega');
@@ -113,10 +124,12 @@ export default function MyTransactions() {
       alert('Por favor selecciona una calificación');
       return;
     }
-
     setSubmittingRating(true);
     try {
-      const response = await rateUser(ratingTransaction.id_usuario_vendedor, rating);
+      // Obtener el ID del vendedor desde la transacción
+      const isMyPurchase = ratingTransaction.id_comprador === getCurrentUserId();
+      const vendorId = isMyPurchase ? ratingTransaction.id_usuario : ratingTransaction.id_comprador;
+      const response = await rateUser(vendorId, rating, '', ratingTransaction.id_transaccion);
       if (response.ok) {
         alert('¡Calificación enviada exitosamente!');
         setRatingTransaction(null);
@@ -177,7 +190,6 @@ export default function MyTransactions() {
       <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-wine-darkest">Mis Transacciones</h1>
-          
           <div className="flex space-x-2">
             <button
               onClick={() => setFilter('all')}
@@ -234,7 +246,6 @@ export default function MyTransactions() {
               return (
                 <div key={transaction.id_transaccion} className="border border-gray-200 rounded-lg p-4">
                   <div className="flex items-start space-x-4">
-                    {/* Imagen del producto */}
                     <div className="w-20 h-20 flex-shrink-0">
                       <img
                         src={getImageUrl(transaction.foto)}
@@ -243,7 +254,6 @@ export default function MyTransactions() {
                       />
                     </div>
 
-                    {/* Información de la transacción */}
                     <div className="flex-1">
                       <div className="flex justify-between items-start mb-2">
                         <div>
@@ -266,9 +276,17 @@ export default function MyTransactions() {
                         Iniciado: {new Date(transaction.fecha_inicio).toLocaleDateString()}
                       </p>
 
-                      {/* Acciones según el estado y rol */}
+                      {/* Botón ver comprobante */}
+                      {transaction.comprobante_pago && (
+                        <button
+                          onClick={() => setViewingProof(transaction)}
+                          className="bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-300 mb-2"
+                        >
+                          Ver Comprobante
+                        </button>
+                      )}
+
                       <div className="flex space-x-2">
-                        {/* Acciones para compradores */}
                         {isMyPurchase && transaction.estado === 'PENDIENTE_PAGO' && (
                           <button
                             onClick={() => setSelectedTransaction(transaction)}
@@ -296,7 +314,6 @@ export default function MyTransactions() {
                           </button>
                         )}
 
-                        {/* Acciones para vendedores */}
                         {!isMyPurchase && transaction.estado === 'PAGO_ENVIADO' && (
                           <button
                             onClick={() => handleConfirmPayment(transaction.id_transaccion)}
@@ -324,108 +341,99 @@ export default function MyTransactions() {
         )}
       </div>
 
-      {/* Modal para subir comprobante */}
-      {selectedTransaction && selectedTransaction.estado === 'PENDIENTE_PAGO' && (
+      {/* MODAL SUBIR COMPROBANTE */}
+      {selectedTransaction && (selectedTransaction.estado === 'PENDIENTE_PAGO' || selectedTransaction.estado === 'PAGO_CONFIRMADO') && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold mb-4">Enviar Comprobante de Pago</h3>
-            
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Comprobante de Pago
-              </label>
-              <input
-                type="file"
-                accept="image/*,.pdf"
-                onChange={(e) => setProofFile(e.target.files[0])}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-wine-medium"
-              />
-              <p className="text-sm text-gray-500 mt-1">
-                Formatos admitidos: JPG, PNG, PDF
-              </p>
-            </div>
-
-            <div className="flex space-x-4">
-              <button
-                onClick={() => setSelectedTransaction(null)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => handleUploadProof(selectedTransaction.id_transaccion)}
-                disabled={!proofFile || uploading}
-                className="flex-1 bg-wine-medium text-white px-4 py-2 rounded-lg hover:bg-wine-dark disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {uploading ? 'Subiendo...' : 'Enviar'}
-              </button>
-            </div>
+            {selectedTransaction.estado === 'PENDIENTE_PAGO' && (
+              <>
+                <h3 className="text-lg font-semibold mb-4">Enviar Comprobante de Pago</h3>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Comprobante de Pago
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={(e) => setProofFile(e.target.files[0])}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-wine-medium"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Formatos admitidos: JPG, PNG, PDF
+                  </p>
+                </div>
+                <div className="flex space-x-4">
+                  <button
+                    onClick={() => setSelectedTransaction(null)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => handleUploadProof(selectedTransaction.id_transaccion)}
+                    disabled={!proofFile || uploading}
+                    className="flex-1 bg-wine-medium text-white px-4 py-2 rounded-lg hover:bg-wine-dark disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {uploading ? 'Subiendo...' : 'Enviar'}
+                  </button>
+                </div>
+              </>
+            )}
+            {selectedTransaction.estado === 'PAGO_CONFIRMADO' && (
+              <>
+                <h3 className="text-lg font-semibold mb-4">Marcar como Enviado</h3>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Información de Seguimiento (Opcional)
+                  </label>
+                  <textarea
+                    value={trackingInfo}
+                    onChange={(e) => setTrackingInfo(e.target.value)}
+                    placeholder="Ej: Número de guía, empresa de envío, etc."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-wine-medium resize-none"
+                    rows={3}
+                  />
+                </div>
+                <div className="flex space-x-4">
+                  <button
+                    onClick={() => setSelectedTransaction(null)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => handleMarkAsShipped(selectedTransaction.id_transaccion)}
+                    className="flex-1 bg-wine-medium text-white px-4 py-2 rounded-lg hover:bg-wine-dark"
+                  >
+                    Marcar como Enviado
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
 
-      {/* Modal para marcar como enviado */}
-      {selectedTransaction && selectedTransaction.estado === 'PAGO_CONFIRMADO' && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold mb-4">Marcar como Enviado</h3>
-            
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Información de Seguimiento (Opcional)
-              </label>
-              <textarea
-                value={trackingInfo}
-                onChange={(e) => setTrackingInfo(e.target.value)}
-                placeholder="Ej: Número de guía, empresa de envío, etc."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-wine-medium resize-none"
-                rows={3}
-              />
-            </div>
-
-            <div className="flex space-x-4">
-              <button
-                onClick={() => setSelectedTransaction(null)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => handleMarkAsShipped(selectedTransaction.id_transaccion)}
-                className="flex-1 bg-wine-medium text-white px-4 py-2 rounded-lg hover:bg-wine-dark"
-              >
-                Marcar como Enviado
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal para calificar vendedor */}
+      {/* MODAL CALIFICAR */}
       {ratingTransaction && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <h3 className="text-lg font-semibold mb-4">Calificar Vendedor</h3>
-            
             <div className="mb-4">
               <p className="text-sm text-gray-600 mb-3">
                 ¿Cómo fue tu experiencia comprando <strong>{ratingTransaction.nombre}</strong> a <strong>{ratingTransaction.nombre_vendedor}</strong>?
               </p>
-              
               <div className="flex justify-center space-x-2 mb-4">
-                {[1, 2, 3, 4, 5].map((star) => (
+                {[1,2,3,4,5].map((star) => (
                   <button
                     key={star}
                     onClick={() => setRating(star)}
-                    className={`text-2xl transition-colors ${
-                      star <= rating ? 'text-yellow-500' : 'text-gray-300 hover:text-yellow-400'
-                    }`}
+                    className={`text-2xl transition-colors ${star <= rating ? 'text-yellow-500' : 'text-gray-300 hover:text-yellow-400'}`}
                   >
                     ⭐
                   </button>
                 ))}
               </div>
-              
               <div className="text-center text-sm text-gray-500">
                 {rating === 0 && 'Selecciona una calificación'}
                 {rating === 1 && 'Muy malo'}
@@ -435,13 +443,9 @@ export default function MyTransactions() {
                 {rating === 5 && 'Excelente'}
               </div>
             </div>
-
             <div className="flex space-x-4">
               <button
-                onClick={() => {
-                  setRatingTransaction(null);
-                  setRating(0);
-                }}
+                onClick={() => { setRatingTransaction(null); setRating(0); }}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
               >
                 Cancelar
@@ -453,6 +457,44 @@ export default function MyTransactions() {
               >
                 {submittingRating ? 'Enviando...' : 'Enviar Calificación'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL VER COMPROBANTE */}
+      {viewingProof && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-3xl w-full p-4 relative">
+            <button
+              onClick={() => setViewingProof(null)}
+              className="absolute top-2 right-2 text-gray-600 hover:text-gray-900 text-xl font-bold"
+            >
+              ×
+            </button>
+            <h3 className="text-lg font-semibold mb-4">Comprobante de Pago</h3>
+            {viewingProof.comprobante_pago.endsWith('.pdf') ? (
+              <iframe
+                src={getImageUrl(viewingProof.comprobante_pago)}
+                className="w-full h-96"
+                title="Comprobante de Pago"
+              />
+            ) : (
+              <img
+                src={getImageUrl(viewingProof.comprobante_pago)}
+                alt="Comprobante de Pago"
+                className="w-full h-auto max-h-96 object-contain"
+              />
+            )}
+            <div className="mt-4 text-center">
+              <a
+                href={getImageUrl(viewingProof.comprobante_pago)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline text-sm"
+              >
+                Abrir en nueva pestaña
+              </a>
             </div>
           </div>
         </div>

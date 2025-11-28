@@ -81,6 +81,18 @@ export default function Navbar() {
               </span>
               <div className="absolute inset-0 bg-gradient-to-r from-wine-medium/0 via-wine-medium/20 to-wine-medium/0 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
             </Link>
+            <Link
+              to="/contact"
+              className="relative text-wine-light hover:text-wine-lightest px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 group overflow-hidden"
+            >
+              <span className="relative z-10 flex items-center">
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 12H8m0 0l4-4m-4 4l4 4"/>
+                </svg>
+                Contacto
+              </span>
+              <div className="absolute inset-0 bg-gradient-to-r from-wine-medium/0 via-wine-medium/20 to-wine-medium/0 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+            </Link>
             
             {user?.rol === 'Administrador' && (
               <Link
@@ -315,6 +327,16 @@ export default function Navbar() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                 </svg>
                 Explorar
+              </Link>
+              <Link
+                to="/contact"
+                className="flex items-center px-3 py-2 rounded-lg text-base font-medium text-wine-light hover:text-wine-lightest hover:bg-wine-medium/20 transition-all duration-200"
+                onClick={() => setMenuOpen(false)}
+              >
+                <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 12H8m0 0l4-4m-4 4l4 4"/>
+                </svg>
+                Contacto
               </Link>
               
               {token && (

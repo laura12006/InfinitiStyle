@@ -6,7 +6,8 @@ export default function Explorar() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [publications, setPublications] = useState([]);
-  const [filters, setFilters] = useState({});
+  // Por defecto mostrar sólo publicaciones disponibles
+  const [filters, setFilters] = useState({ estado: 'Disponible' });
 
   useEffect(() => {
     loadInitialData();
@@ -42,6 +43,11 @@ export default function Explorar() {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* Calcular publicaciones visibles según filtro de estado */}
+      {/* Si el usuario selecciona "Todos" (estado undefined), mostramos todo */}
+      {/** compute visiblePublications **/}
+      {/* eslint-disable-next-line no-unused-vars */}
+      {null}
       {/* Encabezado Explorar */}
       <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
         <h2 className="text-3xl font-bold mb-4 text-wine-darkest">Explorar Publicaciones</h2>
@@ -117,54 +123,60 @@ export default function Explorar() {
 
       {/* Lista de publicaciones estilo catálogo */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-        {publications.map((pub) => (
-          <div
-            key={pub.id_publicacion}
-            className="bg-white rounded-lg shadow-md p-4 flex flex-col"
-          >
-            {/* Imagen */}
-            <div className="flex justify-center mb-4">
-              <img
-                src={getImageUrl(pub.foto)}
-                alt={pub.nombre}
-                className="w-48 h-40 object-contain"
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = 'https://via.placeholder.com/150?text=No+disponible';
-                }}
-              />
-            </div>
+        {(() => {
+          // Si existe un filtro de estado, filtrar localmente como respaldo
+          const visible = filters.estado ? publications.filter(p => p.estado === filters.estado) : publications
+          if (!visible || visible.length === 0) {
+            return (
+              <div className="col-span-full text-center text-gray-500 mt-8">
+                No hay publicaciones disponibles
+              </div>
+            )
+          }
 
-            {/* Nombre */}
-            <h3 className="font-semibold text-base mb-1">{pub.nombre}</h3>
-
-            {/* Descripción */}
-            <p className="text-xs text-gray-600 mb-3 line-clamp-3">{pub.descripcion_prenda}</p>
-
-            {/* Precio y tipo publicación */}
-            <div className="flex justify-between items-center text-sm font-semibold text-[#372a28] mb-4">
-              <span>${pub.valor}</span>
-              <span className="px-2 py-0.5 border border-[#372a28] rounded text-xs">
-                {pub.tipo_publicacion}
-              </span>
-            </div>
-
-            {/* Botón */}
-            <Link
-              to={`/publications/${pub.id_publicacion}`}
-              className="block bg-[#372a28] hover:bg-[#250f0d] text-white text-center rounded-md py-2 font-semibold transition"
+          return visible.map((pub) => (
+            <div
+              key={pub.id_publicacion}
+              className="bg-white rounded-lg shadow-md p-4 flex flex-col"
             >
-              Ver Detalles
-            </Link>
-          </div>
-        ))}
-      </div>
+              {/* Imagen */}
+              <div className="flex justify-center mb-4">
+                <img
+                  src={getImageUrl(pub.foto)}
+                  alt={pub.nombre}
+                  className="w-48 h-40 object-contain"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = 'https://via.placeholder.com/150?text=No+disponible';
+                  }}
+                />
+              </div>
 
-      {publications.length === 0 && (
-        <div className="text-center text-gray-500 mt-8">
-          No hay publicaciones disponibles
-        </div>
-      )}
+              {/* Nombre */}
+              <h3 className="font-semibold text-base mb-1">{pub.nombre}</h3>
+
+              {/* Descripción */}
+              <p className="text-xs text-gray-600 mb-3 line-clamp-3">{pub.descripcion_prenda}</p>
+
+              {/* Precio y tipo publicación */}
+              <div className="flex justify-between items-center text-sm font-semibold text-[#372a28] mb-4">
+                <span>${pub.valor}</span>
+                <span className="px-2 py-0.5 border border-[#372a28] rounded text-xs">
+                  {pub.tipo_publicacion}
+                </span>
+              </div>
+
+              {/* Botón */}
+              <Link
+                to={`/publications/${pub.id_publicacion}`}
+                className="block bg-[#372a28] hover:bg-[#250f0d] text-white text-center rounded-md py-2 font-semibold transition"
+              >
+                Ver Detalles
+              </Link>
+            </div>
+          ))
+        })()}
+      </div>
     </div>
   );
 }
