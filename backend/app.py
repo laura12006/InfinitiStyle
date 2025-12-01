@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory, make_response
 from flask_cors import CORS
+from flask_swagger_ui import get_swaggerui_blueprint
 import pymysql
 from config import DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT, SECRET_KEY, JWT_ALGORITHM
 from config import SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM
@@ -31,6 +32,23 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 # Crear la carpeta de uploads si no existe
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
+
+# ===== CONFIGURACIÓN DE SWAGGER UI =====
+SWAGGER_URL = '/docs'
+API_URL = '/openapi.yaml'
+
+swaggerui_blueprint = get_swaggerui_blueprint(
+    SWAGGER_URL,
+    API_URL,
+    config={'app_name': 'InfinitiStyle API'}
+)
+app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
+
+# Servir el archivo openapi.yaml
+@app.route('/openapi.yaml')
+def openapi():
+    openapi_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'openapi.yaml')
+    return send_from_directory(os.path.dirname(openapi_path), 'openapi.yaml')
 
 # Manejar peticiones OPTIONS para CORS
 @app.before_request

@@ -60,18 +60,46 @@ export default function BuyButton({ publication, onTransactionStart }) {
     }
   };
 
+  const openChatWithOwner = () => {
+    try {
+      const ownerId = publication?.id_usuario;
+      if (!ownerId) {
+        alert('No se pudo obtener el ID del propietario. Intenta nuevamente.');
+        return;
+      }
+      
+      // Obtener nombre del propietario desde varios campos posibles
+      let ownerName = 'Vendedor';
+      if (publication['1_nombre'] && publication['1_apellido']) {
+        ownerName = `${publication['1_nombre']} ${publication['1_apellido']}`.trim();
+      } else if (publication['1_nombre']) {
+        ownerName = publication['1_nombre'];
+      } else if (publication.username) {
+        ownerName = publication.username;
+      }
+      
+      const defaultMsg = `Hola, me interesa intercambiar por "${publication.nombre}". ¿Te interesa mi prenda?`;
+      
+      console.log('[Chat Debug]', { ownerId, ownerName, message: defaultMsg });
+      
+      window.dispatchEvent(new CustomEvent('openChat', { 
+        detail: { 
+          other_user_id: ownerId, 
+          other_user_name: ownerName, 
+          message: defaultMsg 
+        } 
+      }));
+      
+      // Cerrar modal para enfocarse en el chat
+      setShowModal(false);
+    } catch (err) {
+      console.error('Error opening chat:', err);
+      alert('No se pudo abrir el chat. Intenta nuevamente.');
+    }
+  };
+
   if (publication.tipo_publicacion === 'Intercambio') {
-    return (
-      <button
-        onClick={handleBuyClick}
-        className="w-full bg-wine-medium text-white py-3 px-6 rounded-lg hover:bg-wine-dark transition-colors font-semibold flex items-center justify-center space-x-2"
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-        </svg>
-        <span>Proponer Intercambio</span>
-      </button>
-    );
+    return null; // No mostrar nada para intercambios en la página de detalle
   }
 
   return (
@@ -163,6 +191,17 @@ export default function BuyButton({ publication, onTransactionStart }) {
               >
                 Cancelar
               </button>
+              {publication.tipo_publicacion === 'Intercambio' && (
+                <button
+                  onClick={openChatWithOwner}
+                  className="flex-1 px-4 py-2 bg-white border border-wine-medium text-wine-medium rounded-lg hover:bg-wine-medium/5 transition-colors flex items-center justify-center"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  Chatear con propietario
+                </button>
+              )}
               <button
                 onClick={handleConfirmPurchase}
                 disabled={loading}

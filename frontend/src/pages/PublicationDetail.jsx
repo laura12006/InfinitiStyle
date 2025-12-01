@@ -99,6 +99,45 @@ export default function PublicationDetail() {
     }
   }
 
+  const handleOpenChat = () => {
+    if (!user) {
+      alert('Debes iniciar sesión para chatear');
+      return;
+    }
+
+    try {
+      const ownerId = publication?.id_usuario;
+      if (!ownerId) {
+        alert('No se pudo obtener el ID del propietario. Intenta nuevamente.');
+        return;
+      }
+
+      let ownerName = 'Vendedor';
+      if (publication['1_nombre'] && publication['1_apellido']) {
+        ownerName = `${publication['1_nombre']} ${publication['1_apellido']}`.trim();
+      } else if (publication['1_nombre']) {
+        ownerName = publication['1_nombre'];
+      } else if (publication.username) {
+        ownerName = publication.username;
+      }
+
+      const defaultMsg = `Hola, me interesa ${publication.tipo_publicacion === 'Intercambio' ? 'intercambiar' : 'comprar'} "${publication.nombre}". ¿Disponible?`;
+
+      console.log('[Chat Debug]', { ownerId, ownerName, message: defaultMsg });
+
+      window.dispatchEvent(new CustomEvent('openChat', {
+        detail: {
+          other_user_id: ownerId,
+          other_user_name: ownerName,
+          message: defaultMsg
+        }
+      }));
+    } catch (err) {
+      console.error('Error opening chat:', err);
+      alert('No se pudo abrir el chat. Intenta nuevamente.');
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -227,7 +266,7 @@ export default function PublicationDetail() {
 
               {/* Botón de compra - solo si no es el propietario y está disponible */}
               {!isOwner && publication.estado === 'Disponible' && (
-                <div className="mt-8">
+                <div className="mt-8 space-y-3">
                   <BuyButton 
                     publication={publication}
                     onTransactionStart={(transactionId) => {
@@ -235,6 +274,17 @@ export default function PublicationDetail() {
                       navigate('/transactions');
                     }}
                   />
+                  {publication.tipo_publicacion === 'Intercambio' && user && (
+                    <button
+                      onClick={handleOpenChat}
+                      className="w-full bg-white border-2 border-wine-medium text-wine-medium py-3 px-6 rounded-lg hover:bg-wine-medium/10 transition-colors font-semibold flex items-center justify-center space-x-2"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                      <span>Chatear con propietario</span>
+                    </button>
+                  )}
                 </div>
               )}
 

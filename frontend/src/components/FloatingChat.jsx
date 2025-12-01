@@ -55,6 +55,32 @@ export default function FloatingChat() {
     }
   }, [isOpen, currentUser]);
 
+  // Escuchar eventos externos para abrir el chat con mensaje predefinido
+  useEffect(() => {
+    const handler = (e) => {
+      try {
+        const detail = e?.detail || {};
+        const otherId = detail.other_user_id || detail.otherId || detail.userId;
+        const otherName = detail.other_user_name || detail.otherName || detail.userName || detail.name;
+        const message = detail.message || '';
+        if (!otherId) return;
+        setIsOpen(true);
+        // Crear una conversación seleccionada temporal
+        const conv = { other_user_id: otherId, other_user_name: otherName || 'Usuario' };
+        setSelectedConversation({ ...conv, id: otherId });
+        // Cargar mensajes para ese usuario
+        loadMessages(otherId);
+        // Prefill message (no enviar automáticamente)
+        if (message) setNewMessage(message);
+      } catch (err) {
+        console.error('Error handling openChat event', err);
+      }
+    };
+
+    window.addEventListener('openChat', handler);
+    return () => window.removeEventListener('openChat', handler);
+  }, [currentUser]);
+
   // Auto-scroll a nuevos mensajes
   useEffect(() => {
     scrollToBottom();
